@@ -23,10 +23,14 @@ class VectorStoreBuilderConfig:
     is_airflow = os.getenv("IS_AIRFLOW", "false").lower() == "true"
 
     if is_airflow:
-        path = "/opt/airflow/artifacts/data_cleaned.csv"
+        # path = "/opt/airflow/artifacts/data_cleaned.csv"
+        # using th data mock up
+        path = "/opt/airflow/artifacts/data_th_mock.csv"
 
     else:
-        path = "artifacts/data_cleaned.csv"
+        # path = "artifacts/data_cleaned.csv"
+        # using th data mock up
+        path = "artifacts/data_th_mock.csv"
 
 class VectorStoreBuilder:
     """
@@ -85,7 +89,9 @@ class VectorStoreBuilder:
         try: 
             logging.info("Initializing HF BGE Embeddings.")
             embeddings = HuggingFaceEndpointEmbeddings(
-                model="BAAI/bge-small-en-v1.5",
+                # model="BAAI/bge-small-en-v1.5",
+                # using multilingual model 
+                model = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
                 huggingfacehub_api_token=os.getenv("HF_API_KEY"),
             )
 
@@ -142,10 +148,33 @@ class VectorStoreBuilder:
             initial_stats = index.describe_index_stats()
             logging.info(f"Index status before uploading: {initial_stats}")
 
-            vector_store = PineconeVectorStore.from_documents(documents=documents,
-                                                              index_name=index_name, 
-                                                              embedding = embeddings)
+            # vector_store = PineconeVectorStore.from_documents(documents=documents,
+            #                                                   index_name=index_name, 
+            #                                                   embedding = embeddings)
             
+            # check if vectors already exist to prevent upload duplicate data
+            existing_count = initial_stats.get("total_vector_count", 0)
+
+            if existing_count > 0:
+                logging.info(
+                    f"Index '{index_name}' already contains {existing_count} vectors. "
+                    "Skipping upload to prevent duplicates."
+                )
+
+                vector_store = PineconeVectorStore.from_existing_index(
+                    index_name=index_name,
+                    embedding=embeddings
+                )
+
+            else:
+                logging.info("Index is empty. Uploading documents...")
+                vector_store = PineconeVectorStore.from_documents(
+                    documents=documents,
+                    index_name=index_name,
+                    embedding=embeddings
+                )
+
+
             final_stats = index.describe_index_stats()
             logging.info(f"Index status after uploading: {final_stats}")
 
