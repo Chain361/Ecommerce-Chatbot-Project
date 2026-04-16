@@ -34,5 +34,7 @@ psycopg2-binary
 asyncpg
 apache-airflow-providers-celery>=3.3.0
 
+# LINE Bot SDK (LINE OA)
+line-bot-sdk>=3.0.0
 
 # -e . 
