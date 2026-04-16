@@ -4,7 +4,9 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
-from selenium.common.exceptions import NoSuchElementException
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import NoSuchElementException, TimeoutException
 import sys
 import time
 import pandas as pd
@@ -56,7 +58,7 @@ def scrape_products(keyword:str, num_products:int) -> pd.DataFrame:
             
             logging.info("Chrome driver initialized successfully")
             
-            url = "https://www.amazon.in/"
+            url = "https://www.amazon.co.th/"
 
             try:
                 logging.info(f"Attempting to navigate to: {url}")
@@ -67,12 +69,13 @@ def scrape_products(keyword:str, num_products:int) -> pd.DataFrame:
                 logging.error(f"Error navigating to URL: {nav_error}")
                 # Try alternative approach
                 driver.execute_script(f"window.location.href = '{url}';")
-                time.sleep(5)   
-
-            time.sleep(2)
+                time.sleep(3)   
 
             try:
                 # captcha handling
+                # Temporarily reduce implicit wait to fail fast if there's no CAPTCHA
+                driver.implicitly_wait(2)
+                
                 link = driver.find_element(By.XPATH, "//div[@class = 'a-row a-text-center']//img").get_attribute("src")    # <div class=a-row a-text-center>
                 
                 captcha = AmazonCaptcha.fromlink(link)
@@ -89,18 +92,23 @@ def scrape_products(keyword:str, num_products:int) -> pd.DataFrame:
 
             except NoSuchElementException:
                 logging.info("No captcha found")
-
-            time.sleep(3)
+            finally:
+                # Restore original implicit wait
+                driver.implicitly_wait(10)
 
             # search product
-            #search_tab = driver.find_element(By.XPATH, "/html/body/div[1]/header/div/div[1]/div[2]/div/form/div[2]/div[1]/div/input")
-            search_tab = driver.find_element(By.XPATH, "/html/body/div[1]/header/div/div[1]/div[2]/div/form/div[2]/div[1]/input")
-            #search_tab = driver.find_element(By.XPATH, "/html/body/div[1]/header/div[1]/div[1]/div[2]/div/form/div[2]/div[1]/input")  
+            search_tab = WebDriverWait(driver, 10).until(
+                EC.element_to_be_clickable((By.XPATH, "/html/body/div[1]/header/div/div[1]/div[2]/div/form/div[2]/div[1]/input"))
+            )
                                                 
             search_tab.send_keys(keyword)
             search_button = driver.find_element(By.XPATH, "//input[@id='nav-search-submit-button']")
             search_button.click()
-            time.sleep(3)
+            
+            # Wait dynamically until search results load
+            WebDriverWait(driver, 10).until(
+                EC.presence_of_element_located((By.XPATH, "//div[@data-component-type='s-search-result']"))
+            )
 
             data = []
             current_page = 1
@@ -182,15 +190,20 @@ def scrape_products(keyword:str, num_products:int) -> pd.DataFrame:
                         return df                       # Immediately exits the entire function if condition is met
 
                 # Click the "Next" button to go to the next page if the desired number of products isn't reached
-                time.sleep(3)
                 try:
-                    next_button = driver.find_element(By.XPATH, "//a[@class='s-pagination-item s-pagination-next s-pagination-button s-pagination-button-accessibility s-pagination-separator']")
+                    next_button = WebDriverWait(driver, 5).until(
+                        EC.element_to_be_clickable((By.XPATH, "//a[contains(@class, 's-pagination-next')]"))
+                    )
                     next_button.click()
                     current_page += 1
                     logging.info(f"Moving to next page: {current_page}")
-                    time.sleep(3)  
                     
-                except NoSuchElementException:
+                    time.sleep(2) # Brief pause to allow DOM to detach old elements
+                    WebDriverWait(driver, 10).until(
+                        EC.presence_of_element_located((By.XPATH, "//div[@data-component-type='s-search-result']"))
+                    )
+                    
+                except (NoSuchElementException, TimeoutException):
                     logging.info("No next page found. Ending scrape.")
                     break 
                     

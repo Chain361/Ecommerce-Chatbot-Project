@@ -1,5 +1,6 @@
 import os 
 import sys 
+import pandas as pd
 
 from src.components import scraper 
 from src.utils.logger import logging
@@ -25,22 +26,28 @@ class DataCollection:
 
     def initiate_data_collection(self):
         try:
-            keyword = "shirt"
-            num_products = 5
+            keywords = ["shirt", "pants", "hat"]
+            num_products = 10
             
-            logging.info(f"Starting data collection for '{keyword}'")
+            all_data = []
 
-            data = scraper.scrape_products(keyword, num_products)        
+            for keyword in keywords:
+                logging.info(f"Starting data collection for '{keyword}'")
 
-            print("Data shape for", keyword, "is: ", data.shape)
-            print("Sample data for", keyword, "is: ", data.head())
+                data = scraper.scrape_products(keyword, num_products)        
 
-            file_path = self.data_collection_config.output_file_path
-            os.makedirs(os.path.dirname(file_path), exist_ok=True)
-            data.to_csv(file_path, index=False)
+                print("Data shape for", keyword, "is: ", data.shape)
+                print("Sample data for", keyword, "is: ", data.head())
+                all_data.append(data)
 
-            logging.info(f"Successfully collected and saved data for: {keyword}")
-            return f"Collected data for {keyword}"
+            if all_data:
+                final_data = pd.concat(all_data, ignore_index=True)
+                file_path = self.data_collection_config.output_file_path
+                os.makedirs(os.path.dirname(file_path), exist_ok=True)
+                final_data.to_csv(file_path, index=False)
+
+                logging.info("Successfully collected and saved data for all keywords.")
+            return "Collected data for all keywords"
         
         except Exception as e:
             logging.error(f"Error occurred in data collection: {str(e)}")
