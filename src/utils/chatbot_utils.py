@@ -200,7 +200,7 @@ class BuildRetrievalchain:
     def load_vectorstore(self, embeddings):
         try:
             logging.info("Loading vectorstore ")  
-            vector_store = PineconeVectorStore.from_existing_index(index_name="rough",           # ecommerce-chatbot-project
+            vector_store = PineconeVectorStore.from_existing_index(index_name="cs271-ecommerce-chatbot",           # ecommerce-chatbot-project
                                                                    embedding=embeddings)
 
             logging.info("Successfully loaded vectorstore")
