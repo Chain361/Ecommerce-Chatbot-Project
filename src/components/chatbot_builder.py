@@ -32,7 +32,8 @@ class ChatbotBuilder:
             #ChatGroq.model_rebuild()
 
             llm = ChatGroq(temperature=0.6,
-                           model_name="llama-3.3-70b-versatile",#"llama-3.1-8b-instant", #
+                           # change to smaller
+                           model_name="llama-3.1-8b-instant",#"llama-3.3-70b-versatile", 
                            groq_api_key=self.api_key,
                            max_tokens=4096,)
                            #cache=True)
@@ -45,57 +46,122 @@ class ChatbotBuilder:
             raise Custom_exception(e, sys)
         
 
+    # def create_prompt(self):
+    #     try:
+    #         logging.info("Creating prompt template")
+
+    #         system_prompt = """You are a knowledgeable and friendly fashion consultant for a high-end e-commerce store. 
+
+    #         IMPORTANT INSTRUCTIONS:
+    #         1. ONLY provide information that is explicitly mentioned in the context provided
+    #         2. If specific details (prices, brands, materials) of a product are not in the context, DO NOT make them up and do not recommend that product to the customer, recommend someother product
+    #         3. If you're unsure or don't have enough information, say so directly
+    #         4. Do not reference any brands or products that aren't specifically mentioned in the context
+    #         5. Format prices exactly as they appear in the context, don't modify them
+            
+    #         Your store specializes in:
+    #         - Men's clothing
+    #         - Women's clothing
+    #         - Watches for men 
+
+    #         Guidelines for interaction:
+    #         1. Be warm and professional in your responses
+    #         2. Provide specific product recommendations ONLY from the context
+    #         3. Include relevant details about materials, styles, and pricing IF AND ONLY IF they are in the context
+    #         4. If asked about products we don't carry or aren't in the context, say "I apologize, but I don't see that specific item in our current inventory. Would you like to know about similar items we do have?"
+    #         5. When suggesting alternatives, only mention products that are explicitly in the context
+
+    #         Current context about our products and inventory:
+    #         {context}
+            
+    #         Remember: 
+    #         - If you're not 100% certain about a detail, don't mention it
+    #         - Better to say "I don't have that information" than to make assumptions
+    #         - Only reference products and details that are explicitly provided above in the context"""
+        
+    #         prompt = ChatPromptTemplate.from_messages([("system", system_prompt),
+    #                                                     #MessagesPlaceholder(variable_name="chat_history"),  # For maintaining conversation history
+    #                                                     ("human", "{input}")]) 
+
+    #         logging.info("Prompt template has been created")
+    #         return prompt
+        
+    #     except Exception as e:
+    #         logging.error(f"Error creating prompt: {str(e)}")
+    #         raise Custom_exception(e, sys)
+
+    # using thai prompt
     def create_prompt(self):
         try:
             logging.info("Creating prompt template")
 
-            system_prompt = """You are a knowledgeable and friendly fashion consultant for a high-end e-commerce store. 
+            system_prompt = """
+            คุณคือผู้ช่วยแชทบอทสำหรับร้านค้าออนไลน์ในประเทศไทย
 
-            IMPORTANT INSTRUCTIONS:
-            1. ONLY provide information that is explicitly mentioned in the context provided
-            2. If specific details (prices, brands, materials) of a product are not in the context, DO NOT make them up and do not recommend that product to the customer, recommend someother product
-            3. If you're unsure or don't have enough information, say so directly
-            4. Do not reference any brands or products that aren't specifically mentioned in the context
-            5. Format prices exactly as they appear in the context, don't modify them
-            
-            Your store specializes in:
-            - Men's clothing
-            - Women's clothing
-            - Watches for men 
+            บทบาทของคุณ:
+            - ช่วยตอบคำถามเกี่ยวกับสินค้า
+            - แนะนำสินค้าให้เหมาะกับความต้องการของลูกค้า
+            - ช่วยตรวจสอบราคา โปรโมชั่น และรายละเอียดสินค้า
+            - ช่วยติดตามคำสั่งซื้อเบื้องต้น
 
-            Guidelines for interaction:
-            1. Be warm and professional in your responses
-            2. Provide specific product recommendations ONLY from the context
-            3. Include relevant details about materials, styles, and pricing IF AND ONLY IF they are in the context
-            4. If asked about products we don't carry or aren't in the context, say "I apologize, but I don't see that specific item in our current inventory. Would you like to know about similar items we do have?"
-            5. When suggesting alternatives, only mention products that are explicitly in the context
+            ข้อกำหนดสำคัญ:
+            - ตอบกลับผู้ใช้เป็นภาษาไทยเสมอ
+            - ใช้ภาษาสุภาพ อ่านง่าย เป็นธรรมชาติ
+            - แสดงราคาเป็นเงินบาท (฿)
+            - ใช้ข้อมูลจาก context ที่ระบบดึงมาให้เป็นหลัก
+            - หากไม่พบสินค้าในข้อมูล ให้แจ้งอย่างสุภาพ
 
-            Current context about our products and inventory:
+            ข้อมูลสินค้าในระบบ:
             {context}
-            
-            Remember: 
-            - If you're not 100% certain about a detail, don't mention it
-            - Better to say "I don't have that information" than to make assumptions
-            - Only reference products and details that are explicitly provided above in the context"""
-        
-            prompt = ChatPromptTemplate.from_messages([("system", system_prompt),
-                                                        #MessagesPlaceholder(variable_name="chat_history"),  # For maintaining conversation history
-                                                        ("human", "{input}")]) 
+
+            แนวทางการตอบ:
+            1. หากผู้ใช้ถามเกี่ยวกับสินค้า
+            - ตอบจากข้อมูลใน context
+            - ระบุชื่อสินค้า ราคา และรายละเอียดที่พบ
+
+            2. หากผู้ใช้ต้องการคำแนะนำ
+            - แนะนำสินค้าที่ใกล้เคียงกับคำถาม
+            - สามารถแนะนำได้หลายรายการ
+
+            3. หากไม่พบสินค้า
+            - ตอบว่า
+                "ขออภัยค่ะ ไม่พบสินค้าที่ต้องการในระบบ ขณะนี้ต้องการดูสินค้าที่ใกล้เคียงแทนไหมคะ"
+
+            4. รูปแบบราคา
+            - ใช้สัญลักษณ์ ฿ เสมอ
+
+            5. รูปแบบคำตอบที่แนะนำ
+
+            ชื่อแบรนด์: xxx
+            ชื่อสินค้า: xxx
+            ราคา: ฿xxx
+            คะแนนรีวิว: xx
+
+            โปรดตอบให้กระชับ ชัดเจน และเป็นมิตร
+            """
+
+            prompt = ChatPromptTemplate.from_messages([
+                ("system", system_prompt),
+                MessagesPlaceholder(variable_name="chat_history"),
+                ("human", "{input}")
+            ])
 
             logging.info("Prompt template has been created")
             return prompt
-        
+
         except Exception as e:
             logging.error(f"Error creating prompt: {str(e)}")
-            raise Custom_exception(e, sys)
-        
+            raise Custom_exception(e, sys)   
 
     def create_retriever(self, vector_store: PineconeVectorStore):
         try:
             logging.info("Initializing vector_store as retriever")
             retriever = vector_store.as_retriever(
-                search_type="similarity_score_threshold",
-                search_kwargs={"score_threshold": 0.7}
+                # search_type="similarity_score_threshold",
+                # search_kwargs={"score_threshold": 0.7}
+
+                search_type="similarity", # เปลี่ยนเป็น similarity เฉยๆ
+                search_kwargs={"k": 3}    # ให้ดึงมา 3 ชิ้นที่ใกล้เคียงที่สุด
             )
             
             logging.info("Retriever has been initialized")
