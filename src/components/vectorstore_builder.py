@@ -23,14 +23,14 @@ class VectorStoreBuilderConfig:
     is_airflow = os.getenv("IS_AIRFLOW", "false").lower() == "true"
 
     if is_airflow:
-        # path = "/opt/airflow/artifacts/data_cleaned.csv"
+        path = "/opt/airflow/artifacts/data_cleaned.csv"
         # using th data mock up
-        path = "/opt/airflow/artifacts/data_th_mock.csv"
+        # path = "/opt/airflow/artifacts/data_th_mock.csv"
 
     else:
-        # path = "artifacts/data_cleaned.csv"
+        path = "artifacts/data_cleaned.csv"
         # using th data mock up
-        path = "artifacts/data_th_mock.csv"
+        # path = "artifacts/data_th_mock.csv"
 
 class VectorStoreBuilder:
     """
