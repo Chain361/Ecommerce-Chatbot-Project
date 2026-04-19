@@ -136,6 +136,7 @@ ENV/
 env.bak/
 venv.bak/
 envi/
+envi-scraper/
 
 # Spyder project settings
 .spyderproject
