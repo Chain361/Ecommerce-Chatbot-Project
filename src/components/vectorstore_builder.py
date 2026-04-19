@@ -49,23 +49,63 @@ class VectorStoreBuilder:
 
 
 
-    def load_data(self, data_path: str) -> List[Document]:
-        try:
-            logging.info(f"Loading data from {data_path}")
-            loader = CSVLoader(file_path=data_path,
-                               encoding="utf-8",
-                                csv_args={"delimiter": ",",
-                                          "quotechar": '"'})
-            docs = loader.load()
+    #def load_data(self, data_path: str) -> List[Document]:
+        #try:
+            #logging.info(f"Loading data from {data_path}")
+            #loader = CSVLoader(file_path=data_path,
+            #                   encoding="utf-8",
+            #                    csv_args={"delimiter": ",",
+            #                              "quotechar": '"'})
+            #docs = loader.load()
 
             logging.info(f"Sample data: {docs[:5]}")
             logging.info(f"Successfully loaded {len(docs)} documents.")
-            return docs 
+            #return docs 
         
+        #except Exception as e:
+        #    logging.error(f"Error in loading data: {str(e)}")
+        #    raise Custom_exception(e, sys)
+    
+    #แก้ load_data() ใหม่
+    def load_data(self, data_path: str) -> List[Document]:
+        try:
+            logging.info(f"Loading data from {data_path}")
+
+            docs = []
+
+            with open(data_path, "r", encoding="utf-8") as f:
+                lines = f.readlines()
+
+            for line in lines:
+                name, brand, price, rating = line.strip().split(",")
+
+                # detect category แบบง่าย
+                if "เสื้อโปโล" in name:
+                    category = "เสื้อโปโล"
+                elif "เสื้อยืด" in name:
+                    category = "เสื้อยืด"
+                elif "กางเกง" in name:
+                    category = "กางเกง"
+                else:
+                    category = "อื่นๆ"
+
+                content = f"""
+                ชื่อสินค้า: {name}
+                แบรนด์: {brand}
+                ราคา: {price} บาท
+                คะแนนรีวิว: {rating}
+                ประเภทสินค้า: {category}
+                """
+
+                docs.append(Document(page_content=content))
+
+            logging.info(f"Formatted {len(docs)} documents")
+            return docs
+
         except Exception as e:
             logging.error(f"Error in loading data: {str(e)}")
             raise Custom_exception(e, sys)
-    
+
 
     # facing issues with NVIDIA embeddings from nvidia backend, switched to HF BGE embeddings 
     # def create_embeddings(self) -> NVIDIAEmbeddings:
@@ -120,7 +160,9 @@ class VectorStoreBuilder:
 
     def create_vector_store(self, documents: List[Document], 
                             embeddings: HuggingFaceEndpointEmbeddings, 
-                            index_name: str = 'rough') -> PineconeVectorStore: # ecommerce-chatbot-project
+                            #index_name: str = 'rough') -> PineconeVectorStore: # ecommerce-chatbot-project
+                            index_name: str = 'rough-v2') -> PineconeVectorStore:
+
         try:
             logging.info(f"Connecting to Pinecone and creating index: {index_name}")
             pc = Pinecone(api_key=self.pinecone_api_key)
