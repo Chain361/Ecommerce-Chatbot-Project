@@ -5,53 +5,67 @@ import logging
 import sys
 import os
 
+# เพิ่ม Path เพื่อให้ Airflow หา Module ใน src เจอ
 sys.path.append('/opt/airflow')
 
 from src.components.data_collection import DataCollection
 from src.components.data_cleaning import DataCleaner
 from src.components.vectorstore_builder import VectorStoreBuilder
 from src.components.chatbot_builder import ChatbotBuilder
-
 from langchain_pinecone import PineconeVectorStore
 
 default_args = {
     'owner': 'airflow',
-    'depends_on_past': False,               # does the current DAG run depends on the previous DAG run? 
-    'start_date': datetime(2025, 6, 17),
+    'depends_on_past': False,
+    'start_date': datetime(2025, 6, 17), # หรือปรับเป็นวันที่ปัจจุบัน
     'retries': 1,
-    'retry_delay': timedelta(minutes=4),    # if a task fails in a dag run, it will be retried after 4 minutes  
-                                            # we can try to solve the error within 4 minutes for a successfull rerun
+    'retry_delay': timedelta(minutes=4),
 }
 
 dag = DAG(
     'Ecommerce-Chatbot-Pipeline',
     default_args=default_args,
-    description='Ecommerce Chatbot Pipeline',
-    schedule_interval=None,               # DAG runs will start only with a manual trigger 
+    description='Ecommerce Chatbot Pipeline for Thai Products',
+    schedule_interval=None,
     catchup=False,
 )
 
+# --- Task Functions ---
 
-# task functions
 def collect_data():
+    logging.info("Starting Data Collection Task")
     DataCollection().initiate_data_collection()
 
 def clean_data():
+    logging.info("Starting Data Cleaning Task")
     DataCleaner().clean_data()
 
-def build_vectorstore():                                # creating the vectorstore
+def build_vectorstore():
+    logging.info("Starting VectorStore Build Task")
+    # ตัวนี้จะใช้ index_name="rough-v2" ตาม default ใน class
     VectorStoreBuilder().run_pipeline()       
 
 def build_chatbot():
-    pipeline = VectorStoreBuilder()                     # loading the created vectorstore as we don't want to pass the result from one task to another 
-    embeddings = pipeline.create_embeddings()
+    logging.info("Starting Chatbot Build Task")
+    builder_config = VectorStoreBuilder()
+    embeddings = builder_config.create_embeddings()
+    
+    # แก้ไข index_name ให้ตรงกับ rough-v2 ที่อยู่ใน Pinecone และ VectorStoreBuilder
+    index_name = "rough-v2" 
+    
+    logging.info(f"Loading existing index: {index_name}")
     vector_store = PineconeVectorStore.from_existing_index(
-        index_name="rough", 
+        index_name=index_name, 
         embedding=embeddings
     )
    
-    ChatbotBuilder().build_chatbot(vector_store)
+    # ส่ง vector_store เข้าไปสร้าง Chain ใน ChatbotBuilder
+    chatbot = ChatbotBuilder()
+    chatbot.build_chatbot(vector_store)
+    logging.info("Chatbot Chain built successfully")
 
+
+# --- DAG Structure ---
 
 with dag:
     task1 = PythonOperator(
@@ -74,4 +88,5 @@ with dag:
         python_callable=build_chatbot
     )
 
+    # กำหนดลำดับการทำงาน
     task1 >> task2 >> task3 >> task4

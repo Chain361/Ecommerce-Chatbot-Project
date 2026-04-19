@@ -1,6 +1,7 @@
 import os 
 import sys 
 import time
+import csv # เพิ่มการใช้ csv module
 from typing import List
 from dataclasses import dataclass
 
@@ -17,235 +18,159 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-
 @dataclass
 class VectorStoreBuilderConfig:
     is_airflow = os.getenv("IS_AIRFLOW", "false").lower() == "true"
 
     if is_airflow:
         path = "/opt/airflow/artifacts/data_cleaned.csv"
-        # using th data mock up
-        # path = "/opt/airflow/artifacts/data_th_mock.csv"
-
     else:
         path = "artifacts/data_cleaned.csv"
-        # using th data mock up
-        # path = "artifacts/data_th_mock.csv"
 
 class VectorStoreBuilder:
-    """
-    Load data 
-    Create embeddings 
-    Create vector store and return the vector store 
-    """
-
     def __init__(self):
         self.vectorstore_builder_config = VectorStoreBuilderConfig()
-        
         self.nvidia_api_key = os.getenv("NVIDIA_API_KEY")
         self.pinecone_api_key = os.getenv("PINECONE_API_KEY")
         if not self.nvidia_api_key or not self.pinecone_api_key:
             raise ValueError("Required API keys not set")
 
-
-
-    #def load_data(self, data_path: str) -> List[Document]:
-        #try:
-            #logging.info(f"Loading data from {data_path}")
-            #loader = CSVLoader(file_path=data_path,
-            #                   encoding="utf-8",
-            #                    csv_args={"delimiter": ",",
-            #                              "quotechar": '"'})
-            #docs = loader.load()
-
-            logging.info(f"Sample data: {docs[:5]}")
-            logging.info(f"Successfully loaded {len(docs)} documents.")
-            #return docs 
-        
-        #except Exception as e:
-        #    logging.error(f"Error in loading data: {str(e)}")
-        #    raise Custom_exception(e, sys)
-    
-    #แก้ load_data() ใหม่
     def load_data(self, data_path: str) -> List[Document]:
         try:
             logging.info(f"Loading data from {data_path}")
-
             docs = []
 
+            if not os.path.exists(data_path):
+                raise FileNotFoundError(f"ไม่พบไฟล์ CSV ที่: {data_path}")
+
             with open(data_path, "r", encoding="utf-8") as f:
-                lines = f.readlines()
+                # ใช้ csv.reader แทนการ .split(",") แบบธรรมดา
+                reader = csv.reader(f)
+                
+                # ข้าม Header (บรรทัดแรก)
+                header = next(reader, None) 
 
-            for line in lines:
-                name, brand, price, rating = line.strip().split(",")
+                for row in reader:
+                    # ป้องกันบรรทัดว่างหรือข้อมูลไม่ครบ
+                    if not row or len(row) < 4:
+                        continue
+                    
+                    # แกะค่าตามลำดับ: name, brand, price, rating (จาก DataCleaner ที่ไม่มี index)
+                    name, brand, price, rating = row[0], row[1], row[2], row[3]
 
-                # detect category แบบง่าย
-                if "เสื้อโปโล" in name:
-                    category = "เสื้อโปโล"
-                elif "เสื้อยืด" in name:
-                    category = "เสื้อยืด"
-                elif "กางเกง" in name:
-                    category = "กางเกง"
-                else:
-                    category = "อื่นๆ"
+                    # detect category แบบง่าย
+                    if "เสื้อโปโล" in name:
+                        category = "เสื้อโปโล"
+                    elif "เสื้อยืด" in name:
+                        category = "เสื้อยืด"
+                    elif "กางเกง" in name:
+                        category = "กางเกง"
+                    else:
+                        category = "อื่นๆ"
 
-                content = f"""
-                ชื่อสินค้า: {name}
-                แบรนด์: {brand}
-                ราคา: {price} บาท
-                คะแนนรีวิว: {rating}
-                ประเภทสินค้า: {category}
-                """
+                    content = f"""
+ชื่อสินค้า: {name.strip()}
+แบรนด์: {brand.strip()}
+ราคา: {price.strip()} บาท
+คะแนนรีวิว: {rating.strip()}
+ประเภทสินค้า: {category}
+                    """.strip()
 
-                docs.append(Document(page_content=content))
+                    docs.append(Document(page_content=content, metadata={"source": data_path, "category": category}))
 
-            logging.info(f"Formatted {len(docs)} documents")
+            logging.info(f"Formatted {len(docs)} documents successfully.")
             return docs
 
         except Exception as e:
             logging.error(f"Error in loading data: {str(e)}")
             raise Custom_exception(e, sys)
 
-
-    # facing issues with NVIDIA embeddings from nvidia backend, switched to HF BGE embeddings 
-    # def create_embeddings(self) -> NVIDIAEmbeddings:
-    #     try:
-    #         logging.info("Initializing NVIDIA Embeddings.")
-    #         embeddings = NVIDIAEmbeddings(
-    #             model="NV-Embed-QA",   # nvidia/embed-qa-4    nvidia/nv-embedqa-mistral-7b-v2
-    #             api_key=self.nvidia_api_key,
-    #             truncate="NONE")
-            
-    #         logging.info("Embeddings initialized successfully.")
-    #         return embeddings
-        
-    #     except Exception as e:
-    #         logging.error(f"Error initializing embeddings: {str(e)}")
-    #         raise Custom_exception(e, sys)
-
-
-
     def create_embeddings(self) -> HuggingFaceEndpointEmbeddings:
         try: 
-            logging.info("Initializing HF BGE Embeddings.")
+            logging.info("Initializing HF BGE Embeddings (Multilingual).")
             embeddings = HuggingFaceEndpointEmbeddings(
-                # model="BAAI/bge-small-en-v1.5",
-                # using multilingual model 
                 model = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
                 huggingfacehub_api_token=os.getenv("HF_API_KEY"),
             )
-
             logging.info("Embeddings initialized successfully.")
             return embeddings
-        
         except Exception as e:
             logging.error(f"Error initializing embeddings: {str(e)}")
             raise Custom_exception(e, sys)
 
-
-
     def test_embeddings(self, embeddings: HuggingFaceEndpointEmbeddings):
         try:
             logging.info("Testing embeddings with sample text...")
-            test_text = "This is a test product description"
+            test_text = "ทดสอบระบบค้นหา"
             test_embedding = embeddings.embed_query(test_text)
             logging.info(f"Test embedding dimension: {len(test_embedding)}")
-            logging.info("Embeddings test successful!")
             return True
         except Exception as e:
             logging.error(f"Embeddings test failed: {str(e)}")
             raise Custom_exception(e, sys)
 
-
-
     def create_vector_store(self, documents: List[Document], 
                             embeddings: HuggingFaceEndpointEmbeddings, 
-                            #index_name: str = 'rough') -> PineconeVectorStore: # ecommerce-chatbot-project
                             index_name: str = 'rough-v2') -> PineconeVectorStore:
-
         try:
-            logging.info(f"Connecting to Pinecone and creating index: {index_name}")
+            logging.info(f"Connecting to Pinecone index: {index_name}")
             pc = Pinecone(api_key=self.pinecone_api_key)
 
-            # Check if index exists and verify its dimension
+            # ตรวจสอบ Dimension (paraphrase-multilingual คือ 384)
             if index_name in pc.list_indexes().names():
                 index_info = pc.describe_index(index_name)
                 if index_info.dimension != 384:
-                    logging.warning(f"Index '{index_name}' dimension ({index_info.dimension}) does not match expected (384). Deleting index...")
+                    logging.warning(f"Index dimension mismatch. Deleting {index_name}...")
                     pc.delete_index(index_name)
                     time.sleep(10)
 
             if index_name not in pc.list_indexes().names():
+                logging.info(f"Creating new index: {index_name}")
                 pc.create_index(name=index_name,
-                                 dimension = 384,    # 4096,   384 
+                                 dimension = 384,
                                  metric="cosine",
-                                 spec=ServerlessSpec(cloud="aws",region="us-east-1"))
+                                 spec=ServerlessSpec(cloud="aws", region="us-east-1"))
                 time.sleep(10)
-            else:
-                logging.info(f"Index '{index_name}' already exists. Skipping creation.")
 
             index = pc.Index(index_name)
-            time.sleep(10)
-
-            initial_stats = index.describe_index_stats()
-            logging.info(f"Index status before uploading: {initial_stats}")
-
-            # vector_store = PineconeVectorStore.from_documents(documents=documents,
-            #                                                   index_name=index_name, 
-            #                                                   embedding = embeddings)
-            
-            # check if vectors already exist to prevent upload duplicate data
-            existing_count = initial_stats.get("total_vector_count", 0)
+            stats = index.describe_index_stats()
+            existing_count = stats.get("total_vector_count", 0)
 
             if existing_count > 0:
-                logging.info(
-                    f"Index '{index_name}' already contains {existing_count} vectors. "
-                    "Skipping upload to prevent duplicates."
-                )
-
+                logging.info(f"Index already has {existing_count} vectors. Skipping upload.")
                 vector_store = PineconeVectorStore.from_existing_index(
                     index_name=index_name,
                     embedding=embeddings
                 )
-
             else:
-                logging.info("Index is empty. Uploading documents...")
+                logging.info(f"Uploading {len(documents)} documents to Pinecone...")
                 vector_store = PineconeVectorStore.from_documents(
                     documents=documents,
                     index_name=index_name,
                     embedding=embeddings
                 )
 
-
-            final_stats = index.describe_index_stats()
-            logging.info(f"Index status after uploading: {final_stats}")
-
-            logging.info(f"Successfully created vector store with {len(documents)} documents")
             return vector_store
-        
         except Exception as e:
             logging.error(f"Error creating vector store: {str(e)}")
             raise Custom_exception(e, sys)
-        
-
 
     def run_pipeline(self) -> PineconeVectorStore:
         try:
             logging.info("Starting vectorstore pipeline")
             docs = self.load_data(self.vectorstore_builder_config.path)
+            if not docs:
+                raise ValueError("No documents were loaded. Pipeline stopped.")
+                
             embeddings = self.create_embeddings()
             self.test_embeddings(embeddings)
             vector_store = self.create_vector_store(docs, embeddings)
 
             logging.info("Vectorstore pipeline completed successfully")
             return vector_store
-        
         except Exception as e:
             logging.error(f"Error in pipeline execution: {str(e)}")
             raise Custom_exception(e, sys)
-
-
-
 
 if __name__=="__main__":
     pipe = VectorStoreBuilder()

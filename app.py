@@ -82,7 +82,7 @@ def handle_line_message(event):
     """
     รับข้อความจากผู้ใช้ LINE -> ส่งเข้า RAG chatbot -> ตอบกลับ
     ใช้ LINE user_id เป็น session_id เพื่อแยก conversation history ต่อ user
-    """
+    """                        
     user_id = event.source.user_id
     user_message = event.message.text
     logging.info(f"LINE [{user_id}]: {user_message}")
