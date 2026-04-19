@@ -31,7 +31,8 @@ class ChatbotBuilder:
 
             #ChatGroq.model_rebuild()
 
-            llm = ChatGroq(temperature=0.6,
+            #change 0.6 -> 0.1
+            llm = ChatGroq(temperature=0.1,
                            # change to smaller
                            model_name="llama-3.1-8b-instant",#"llama-3.3-70b-versatile", 
                            groq_api_key=self.api_key,
@@ -109,7 +110,12 @@ class ChatbotBuilder:
             - ใช้ภาษาสุภาพ อ่านง่าย เป็นธรรมชาติ
             - แสดงราคาเป็นเงินบาท (฿)
             - ใช้ข้อมูลจาก context ที่ระบบดึงมาให้เป็นหลัก
-            - หากไม่พบสินค้าในข้อมูล ให้แจ้งอย่างสุภาพ
+            
+            กฎเพิ่มเติมที่สำคัญ:
+            - หากใน context มีสินค้าที่ตรงกับคำถาม (เช่น คำว่า "เสื้อโปโล") ต้องเลือกสินค้านั้นก่อน
+            - ห้ามบอกว่า "ไม่พบสินค้า" หากยังมีสินค้าที่เกี่ยวข้องอยู่ใน context
+            - ให้พิจารณาคำในชื่อสินค้าเป็นหลัก เช่น "เสื้อโปโล", "กางเกง", "เสื้อยืด"
+            - หากมีสินค้าที่ตรง ให้แนะนำสินค้านั้นทันที
 
             ข้อมูลสินค้าในระบบ:
             {context}
@@ -161,7 +167,8 @@ class ChatbotBuilder:
                 # search_kwargs={"score_threshold": 0.7}
 
                 search_type="similarity", # เปลี่ยนเป็น similarity เฉยๆ
-                search_kwargs={"k": 3}    # ให้ดึงมา 3 ชิ้นที่ใกล้เคียงที่สุด
+                #change k=3 -> k=5
+                search_kwargs={"k": 5}    # ให้ดึงมา 3 ชิ้นที่ใกล้เคียงที่สุด
             )
             
             logging.info("Retriever has been initialized")
